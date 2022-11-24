@@ -1,0 +1,29 @@
+version: '2.1'
+
+name: 'POC Ory'
+
+services:
+  kratos:
+    container_name: kratos
+    image: oryd/kratos:v0.10.1
+    ports:
+      - 4433:4433
+      - 4434:4434
+    environment:
+      - DSN=memory
+    volumes:
+      - type: bind
+        source: ./kratos
+        target: /etc/config/kratos
+    command: serve -c /etc/config/kratos/kratos.yml --dev --watch-courier
+
+  kratos-ui:
+    container_name: kratos-ui
+    image: oryd/kratos-selfservice-ui-node:v0.10.1
+    ports:
+      - 4455:4455
+    environment:
+      - KRATOS_PUBLIC_URL=http://kratos:4433/
+      - KRATOS_BROWSER_URL=http://127.0.0.1:4433/
+      - PORT=4455
+    
