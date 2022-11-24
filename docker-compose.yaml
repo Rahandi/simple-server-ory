@@ -27,3 +27,8 @@ services:
       - KRATOS_BROWSER_URL=http://127.0.0.1:4433/
       - PORT=4455
     
+  mailslurper:
+    image: oryd/mailslurper:latest-smtps
+    ports:
+      - "4436:4436"
+      - "4437:4437"
