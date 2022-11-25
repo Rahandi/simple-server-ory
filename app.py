@@ -1,24 +1,90 @@
 from flask import Flask, redirect, request
 
+from keto import Keto
+from kratos import Kratos
+
 KRATOS_URL = "http://localhost:4433"
+KETO_READ_URL = "http://localhost:4466"
+KETO_WRITE_URL = "http://localhost:4467"
 
 app = Flask(__name__)
+kratos = Kratos(KRATOS_URL)
+keto = Keto(KETO_READ_URL, KETO_WRITE_URL)
 
+PROJECT_ID = "project1"
 
-@app.route('/registration', methods=['GET'])
-def registration():
-    args = request.args
-    flowId = args.get('flow')
+PROJECT_RESOURCES = [
+  "roles",
+  "permissions",
+  "compute",
+]
 
-    if flowId:
-        return flowId
+@app.route('/init', methods=['GET'])
+def init_get():
+  keto.add_role_permission(PROJECT_ID, 'admin', '', 'create')
+  keto.add_role_permission(PROJECT_ID, 'admin', '', 'read')
+  keto.add_role_permission(PROJECT_ID, 'admin', '', 'update')
+  keto.add_role_permission(PROJECT_ID, 'admin', '', 'delete')
 
-    return redirect(KRATOS_URL + "/self-service/registration/api")
+  for resource in PROJECT_RESOURCES:
+    keto.add_child_permission(PROJECT_ID, '', resource)
 
-@app.route('/registration', methods=['POST'])
+  return 'ok'
+
+@app.route('/register', methods=['POST'])
 def registration_post():
-    body = request.get_json()
-    username = body.get('username')
-    password = body.get('password')
+  body = request.get_json()
+  username = body.get('username')
+  password = body.get('password')
 
-    return username + password
+  registered = kratos.register(username, password)
+  if 'messages' in registered:
+    return registered
+
+  if username == 'admin':
+    keto.add_role(registered['principal_id'], 'admin', PROJECT_ID)
+  else:
+    keto.add_role(registered['principal_id'], 'user', PROJECT_ID)
+
+  return registered
+
+@app.route('/login', methods=['POST'])
+def login_post():
+  body = request.get_json()
+  username = body.get('username')
+  password = body.get('password')
+
+  return kratos.login(username, password)
+
+@app.route('/add_role', methods=['POST'])
+def add_role_post():
+  if not check_permission(request.headers.get('Authorization'), 'role', 'create'):
+    return 'Unauthorized', 401
+
+  body = request.get_json()
+  principal_id = body.get('principal_id')
+  role = body.get('role')
+
+  return keto.add_role(principal_id, role, PROJECT_ID)
+
+@app.route('/add_permission', methods=['POST'])
+def add_permission_post():
+  if not check_permission(request.headers.get('Authorization'), 'permission', 'create'):
+    return 'Unauthorized', 401
+
+  body = request.get_json()
+  principal_id = body.get('principal_id')
+  resource_id = body.get('resource_id')
+  operation = body.get('operation')
+
+  return keto.add_permission(PROJECT_ID, principal_id, resource_id, operation)
+
+@app.route('/resources', methods=['GET'])
+def resources_get():
+  print(kratos.whoami(request.headers.get('Authorization')))
+
+  return "This is a protected resource"
+
+def check_permission(authorization, object, operation):
+  principal_id = kratos.whoami(authorization)['principal_id']
+  return keto.check_permission(PROJECT_ID, principal_id, object, operation)
