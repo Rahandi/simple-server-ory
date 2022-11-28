@@ -27,7 +27,10 @@ def init_get():
   keto.add_role_permission(PROJECT_ID, 'admin', '', 'delete')
 
   for resource in PROJECT_RESOURCES:
-    keto.add_child_permission(PROJECT_ID, '', resource)
+    keto.add_child_permission(PROJECT_ID, '', resource, 'create')
+    keto.add_child_permission(PROJECT_ID, '', resource, 'read')
+    keto.add_child_permission(PROJECT_ID, '', resource, 'update')
+    keto.add_child_permission(PROJECT_ID, '', resource, 'delete')
 
   return 'ok'
 
@@ -58,7 +61,7 @@ def login_post():
 
 @app.route('/add_role', methods=['POST'])
 def add_role_post():
-  if not check_permission(request.headers.get('Authorization'), 'role', 'create'):
+  if not check_permission(request.headers.get('Authorization'), 'roles', 'create'):
     return 'Unauthorized', 401
 
   body = request.get_json()
@@ -69,7 +72,7 @@ def add_role_post():
 
 @app.route('/add_permission', methods=['POST'])
 def add_permission_post():
-  if not check_permission(request.headers.get('Authorization'), 'permission', 'create'):
+  if not check_permission(request.headers.get('Authorization'), 'permissions', 'create'):
     return 'Unauthorized', 401
 
   body = request.get_json()
@@ -79,12 +82,14 @@ def add_permission_post():
 
   return keto.add_permission(PROJECT_ID, principal_id, resource_id, operation)
 
-@app.route('/resources', methods=['GET'])
-def resources_get():
-  print(kratos.whoami(request.headers.get('Authorization')))
+@app.route('/resources/<resource>', methods=['GET'])
+def resources_get(resource):
+  operation = request.headers.get('operation')
+  if not check_permission(request.headers.get('Authorization'), resource, operation):
+    return 'Unauthorized', 401
 
-  return "This is a protected resource"
+  return f"access to {resource} is allowed"
 
 def check_permission(authorization, object, operation):
-  principal_id = kratos.whoami(authorization)['principal_id']
+  principal_id = kratos.whoami(authorization).get('principal_id')
   return keto.check_permission(PROJECT_ID, principal_id, object, operation)

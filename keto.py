@@ -42,24 +42,25 @@ class Keto:
 
     return response
   
-  def add_child_permission(self, project_id, parent_resource, child_resource):
+  def add_child_permission(self, project_id, parent_resource, child_resource, operation):
     response = requests.put(self.WRITE_URL + "/admin/relation-tuples", json={
       "namespace": "resources",
       "object": project_id + "/" + child_resource,
-      "relation": "parents",
+      "relation": operation,
       "subject_set": {
         "namespace": "resources",
         "object": project_id + "/" + parent_resource,
+        "relation": operation,
       }
     }).json()
 
     return response
   
-  def check_permission(self, project_id, principal_id, resource_id, operation):
-    response = requests.post(self.READ_URL + "/check", json={
+  def check_permission(self, project_id, principal_id, resource, operation):
+    response = requests.post(self.READ_URL + "/relation-tuples/check", json={
       "namespace": "resources",
       "subject_id": principal_id,
-      "object": project_id + ":" + resource_id,
+      "object": project_id + "/" + resource,
       "relation": operation
     }).json()
 
