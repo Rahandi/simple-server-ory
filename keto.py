@@ -56,6 +56,16 @@ class Keto:
 
     return response
   
+  def remove_role(self, principal_id, role, project_id):
+    response = requests.delete(self.WRITE_URL + "/admin/relation-tuples", json={
+      "namespace": "roles",
+      "subject_id": principal_id,
+      "object": project_id,
+      "relation": role
+    }).json()
+
+    return response
+  
   def check_permission(self, project_id, principal_id, resource, operation):
     response = requests.post(self.READ_URL + "/relation-tuples/check", json={
       "namespace": "resources",
