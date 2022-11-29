@@ -1,11 +1,11 @@
+import base64
+
 from flask import Flask, redirect, request
 
 from datastore import DataStore
 from keto import Keto
 from keystone import Keystone
 from kratos import Kratos
-
-import base64
 
 KRATOS_URL = "http://localhost:4433"
 KETO_READ_URL = "http://localhost:4466"
@@ -17,6 +17,7 @@ datastore = DataStore()
 kratos = Kratos(KRATOS_URL)
 keto = Keto(KETO_READ_URL, KETO_WRITE_URL)
 
+keystone = Keystone('admin', 'adminpw')
 
 PROJECT_ID = "project"
 
@@ -50,9 +51,8 @@ def registration_post():
   if username == 'admin':
     keystone_passwd = 'adminpw'
   else:
-    keystone = Keystone('admin', 'adminpw')
-    keystone_password = base64.b64encode(f'{username}{password}'.encode('utf-8')).decode('utf-8')
-    keystone.create_user(username, keystone_password)
+    keystone_passwd = base64.b64encode(f'{username}{password}'.encode('utf-8')).decode('utf-8')
+    keystone.create_user(username, keystone_passwd)
 
   datastore.create_tables()
   datastore.add_user(username, password, keystone_passwd)
@@ -70,16 +70,13 @@ def login_post():
 @app.route('/create_project', methods=['POST'])
 def create_project_post():
   check = permission_check('project', '', 'create')
-  if check.get('principal') != 'admin':
+  if check.get('principal')[1] != 'admin':
     return 'Unauthorized', 401
-
-  keystone = Keystone('admin', 'adminpw')
 
   body = request.get_json()
   project_name = body.get('project_name')
   project_admin = body.get('project_admin')
   project_members = body.get('project_members')
-  project_members.append(project_admin)
 
   project = keystone.create_project(project_name, project_members)
   project = project.name
@@ -88,6 +85,9 @@ def create_project_post():
   keto.add_role(project_admin, 'admin', project)
   for member in project_members:
     keto.add_role(member, 'user', project)
+
+  members = [project_admin] + project_members
+  keystone.add_project_members(project, members)
 
   keto.add_role_permission(project, 'admin', '', 'create')
   keto.add_role_permission(project, 'admin', '', 'read')
@@ -110,8 +110,13 @@ def delete_project_post(project):
   if not check['allowed']:
     return 'Unauthorized', 401
   
-  principal = check.get('principal')
-  keystone = Keystone(principal[1], principal[3])
+  members = keto.get_project_users(project)
+  keystone.remove_project_members(project, members)
+  for member in members:
+    roles = keto.get_roles(project, member)
+    for role in roles:
+      keto.remove_role(member, role, project)
+
   project = keystone.delete_project(project)
   return 'ok'
 
@@ -121,20 +126,18 @@ def add_project_member_post(project):
   if not check['allowed']:
     return 'Unauthorized', 401
   
-  principal = check.get('principal')
   body = request.get_json()
   role = body.get('role')
   members = body.get('members')
 
-  keystone = Keystone(principal[1], principal[3])
-  keystone.add_project_member(project, members)
+  keystone.add_project_members(project, members)
 
   for member in members:
     keto.add_role(member, role, project)
-    keto.add_child_permission(project, 'roles', member, 'create')
-    keto.add_child_permission(project, 'roles', member, 'read')
-    keto.add_child_permission(project, 'roles', member, 'update')
-    keto.add_child_permission(project, 'roles', member, 'delete')
+    keto.add_child_permission(project, 'roles', f'roles/{member}', 'create')
+    keto.add_child_permission(project, 'roles', f'roles/{member}', 'read')
+    keto.add_child_permission(project, 'roles', f'roles/{member}', 'update')
+    keto.add_child_permission(project, 'roles', f'roles/{member}', 'delete')
 
   return 'ok'
 
@@ -144,14 +147,13 @@ def remove_project_member_post(project):
   if not check['allowed']:
     return 'Unauthorized', 401
   
-  principal = check.get('principal')
-  keystone = Keystone(principal[1], principal[3])
   members = request.get_json().get('members')
-  keystone.remove_project_member(project, members)
+  keystone.remove_project_members(project, members)
 
   for member in members:
-    keto.remove_role(member, 'admin', project)
-    keto.remove_role(member, 'user', project)
+    roles = keto.get_roles(project, member)
+    for role in roles:
+      keto.remove_role(member, role, project)
 
   return 'ok'
 

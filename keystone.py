@@ -2,6 +2,7 @@ from keystoneauth1 import session
 from keystoneauth1.identity import v3
 from keystoneclient.v3 import client
 
+
 class Keystone:
   def __init__(self, username, password) -> None:
     auth = v3.Password(auth_url="http://10.0.3.199/identity/v3", username=username, password=password, project_name="admin", user_domain_id="default", project_domain_id="default")
@@ -24,6 +25,9 @@ class Keystone:
     return project
   
   def delete_project(self, name):
+    project_member_role = self.keystone.roles.find(name=f'{name}_member')
+    project_member_role.delete()
+
     project = self.keystone.projects.find(name=name)
     project.delete()
     return project
@@ -32,16 +36,20 @@ class Keystone:
     user = self.keystone.users.create(name=name, password=password, domain=domain, enabled=enabled)
     return user
   
-  def add_project_members(self, project, members):
-    project_member_role = self.keystone.roles.find(name=f'{project}_member')
+  def add_project_members(self, project_name, members):
+    project = self.keystone.projects.find(name=project_name)
+    project_member_role = self.keystone.roles.find(name=f'{project_name}_member')
     for member in members:
       user = self.keystone.users.find(name=member)
       self.keystone.roles.grant(role=project_member_role, user=user, project=project)
     return project
   
-  def remove_project_members(self, project, members):
-    project_member_role = self.keystone.roles.find(name=f'{project}_member')
+  def remove_project_members(self, project_name, members):
+    project = self.keystone.projects.find(name=project_name)
+    project_member_role = self.keystone.roles.find(name=f'{project_name}_member')
     for member in members:
+      if member == 'admin':
+        continue
       user = self.keystone.users.find(name=member)
       self.keystone.roles.revoke(role=project_member_role, user=user, project=project)
     return project

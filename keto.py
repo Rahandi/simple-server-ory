@@ -57,14 +57,17 @@ class Keto:
     return response
   
   def remove_role(self, principal_id, role, project_id):
-    response = requests.delete(self.WRITE_URL + "/admin/relation-tuples", json={
+    response = requests.delete(self.WRITE_URL + "/admin/relation-tuples", params={
       "namespace": "roles",
       "subject_id": principal_id,
       "object": project_id,
       "relation": role
-    }).json()
+    })
 
-    return response
+    if response.status_code == 204:
+      return True
+
+    return False
   
   def check_permission(self, project_id, principal_id, resource, operation):
     response = requests.post(self.READ_URL + "/relation-tuples/check", json={
@@ -75,3 +78,39 @@ class Keto:
     }).json()
 
     return response.get('allowed', False)
+  
+  def get_roles(self, project_id, principal_id):
+    response = requests.get(self.READ_URL + "/relation-tuples", params={
+      "namespace": "roles",
+      "subject_id": principal_id,
+      "object": project_id
+    }).json()
+
+    relation_tumples = response.get('relation_tuples', [])
+
+    roles = []
+    for relation in relation_tumples:
+      roles.append(relation.get('relation'))
+
+    return roles
+  
+  def get_project_users(self, project_id):
+    relation_tuples = self.__get_relations_tuples("roles", project_id)
+    
+    users = []
+    for relation in relation_tuples:
+      users.append(relation.get('subject_id'))
+
+    return set(users)
+
+  def __get_relations_tuples(self, namespace=None, object=None, relation=None, subject=None):
+    params = {}
+
+    if namespace is not None: params['namespace'] = namespace
+    if object is not None: params['object'] = object
+    if relation is not None: params['relation'] = relation
+    if subject is not None: params['subject'] = subject
+
+    response = requests.get(self.READ_URL + "/relation-tuples", params=params).json()
+
+    return response.get('relation_tuples', [])
