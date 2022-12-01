@@ -1,0 +1,15 @@
+@startuml
+
+participant "Ory Kratos" as kratos
+participant App as app
+participant "Ory Keto" as keto
+
+app -> kratos : get flow id
+kratos -> app : return flow Id
+app -> kratos : submit registration data with flow id
+kratos -> app : return registered user data
+
+app -> keto : create relations tuples for user
+keto -> app : return created relation tuples for user
+
+@enduml

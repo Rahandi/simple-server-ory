@@ -1,0 +1,62 @@
+@startuml
+
+actor "User" as user
+participant "Controller App" as controller
+participant "Auth Gateway" as auth
+' participant "Ory Kratos" as kratos
+participant "Ory Keto" as keto
+' participant "Keystone" as keystone
+participant "Openstack" as openstack
+
+' USER REGISTRATION
+' user -> controller : registration data
+' controller -> auth : registration data
+' auth -> kratos : init registration
+' kratos -> auth : registration flow data
+' auth -> kratos : registration data + flow data
+' kratos -> auth : registration response
+' auth -> keystone : registration data
+' keystone -> auth : registration response
+' auth -> controller : registration response
+' controller -> user : registration response
+
+' PROJECT CREATION
+' user -> controller : create project
+' controller -> openstack : create project
+' controller -> auth : init project
+' auth -> keto : create role for new project
+' auth -> keto : create permissions
+' auth -> keystone : assign user to project
+' controller -> user : project created
+
+' RESOURCE CREATION
+' user -> controller : create resource
+' controller -> auth : check permission
+' auth -> keto : check permission
+' alt allowed
+' keto -> auth : allowed
+' auth -> controller : allowed
+' controller -> openstack : create resource
+' controller -> user : resource created
+' else denied
+' keto -> auth : denied
+' auth -> controller : denied
+' controller -> user : denied
+' end
+
+' PROJECT DELETION
+user -> controller : delete project
+controller -> auth : check permission
+auth -> keto : check permission
+alt allowed
+keto -> auth : allowed
+auth -> controller : allowed
+controller -> openstack : delete project
+controller -> user : project deleted
+else denied
+keto -> auth : denied
+auth -> controller : denied
+controller -> user : denied
+end
+
+@enduml

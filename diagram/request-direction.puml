@@ -1,0 +1,26 @@
+@startuml
+
+participant "Auth Gateway" as gateway
+' participant "Ory Kratos API" as kratos
+' participant "Ory Keto Write API" as ketoWrite
+' participant "Ory Keto Read API" as ketoRead
+participant "Keystone" as keystone
+
+' gateway -> kratos : user registration
+' gateway -> kratos : user login
+
+' gateway -> ketoWrite : create role
+' gateway -> ketoWrite : assign role
+' gateway -> ketoWrite : delete role
+' gateway -> ketoWrite : create permission
+' gateway -> ketoWrite : delete permission
+
+' gateway -> ketoRead : check permission
+
+gateway -> keystone : create keystone user
+gateway -> keystone : create openstack project
+gateway -> keystone : add user to project
+gateway -> keystone : remove user from project
+gateway -> keystone : delete openstack project
+
+@enduml
